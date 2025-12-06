@@ -73,15 +73,17 @@
       cursor: pointer;
       background: #f9fafb;
     }
-    .carry-input {
-      height: 1.3rem;
-      font-size: 0.8rem; /* kleiner als Ergebnis-Ziffern */
-      border-radius: 8px;
-    }
     .input-digit:focus {
       outline: none;
       border-color: #2563eb;
       box-shadow: 0 0 0 2px rgba(37,99,235,0.35);
+    }
+    .carry-input {
+      width: 1.4rem;
+      height: 1.1rem;
+      font-size: 0.7rem; /* etwa halb so gross */
+      border-radius: 7px;
+      padding: 0;
     }
     .input-digit.correct {
       border-color: #16a34a;
@@ -225,16 +227,16 @@
     <div class="digit-cell"><span id="bot-3"></span></div>
     <div class="digit-cell"><span id="bot-4"></span></div>
 
-    <!-- Trennlinie -->
-    <div class="line-row"></div>
-
-    <!-- Zeile: Behalte (über dem Rechenstrich, keine Einerstelle) -->
+    <!-- Zeile: Behalte (klein, keine Einerstelle) -->
     <div class="label-cell"></div>
     <div class="digit-cell"><input class="input-digit carry-input" data-col="0" readonly></div>
     <div class="digit-cell"><input class="input-digit carry-input" data-col="1" readonly></div>
     <div class="digit-cell"><input class="input-digit carry-input" data-col="2" readonly></div>
     <div class="digit-cell"><input class="input-digit carry-input" data-col="3" readonly></div>
     <div class="digit-cell"><!-- keine Behalte-Ziffer bei den Einern --></div>
+
+    <!-- Trennlinie -->
+    <div class="line-row"></div>
 
     <!-- Zeile: Resultat -->
     <div class="label-cell">=</div>
@@ -272,7 +274,7 @@
   let topNumber = 0;
   let bottomNumber = 0;
   let resultDigits = [];   // richtige Ergebnisziffern [0..4]
-  let carryDigits = [];    // richtige Behalte [0..4], wir brauchen 0..3
+  let carryDigits = [];    // richtige Behalte [0..4], wir nutzen 0..3
   let activeInput = null;
 
   const topSpans = [...Array(NUM_COLS)].map((_, i) =>
@@ -281,7 +283,7 @@
   const botSpans = [...Array(NUM_COLS)].map((_, i) =>
     document.getElementById('bot-' + i)
   );
-  const carryInputs = Array.from(document.querySelectorAll('.carry-input')); // cols 0..3
+  const carryInputs = Array.from(document.querySelectorAll('.carry-input')); // Spalten 0..3
   const resultInputs = Array.from(document.querySelectorAll('.result-input'));
 
   const newBtn = document.getElementById('new-btn');
@@ -292,6 +294,7 @@
   const digitGrid = document.getElementById('digit-grid');
   const popupCloseBtn = document.getElementById('popup-close-btn');
 
+  // Ziffern-Buttons im Popup erstellen
   function buildDigitButtons() {
     digitGrid.innerHTML = '';
     for (let d = 0; d <= 9; d++) {
@@ -372,22 +375,20 @@
     resultDigits = digitsOf(sum);
     carryDigits = new Array(NUM_COLS).fill(0);
 
-    // Behalte berechnen:
-    // carryDigits[i] = Übertrag in diese Spalte von rechts (für Spalten 0..3)
+    // Behalte berechnen (Übertrag nach links)
     let carryIn = 0;
     for (let i = NUM_COLS - 1; i >= 0; i--) {
       const s = topDigits[i] + botDigits[i] + carryIn;
       const digit = s % 10;
       const carryOut = Math.floor(s / 10);
       resultDigits[i] = digit;
-      // Übertrag geht nach links in Spalte i-1
       if (i - 1 >= 0) {
-        carryDigits[i - 1] = carryOut;
+        carryDigits[i - 1] = carryOut; // Behalt in Spalte links
       }
       carryIn = carryOut;
     }
 
-    // Summanden anzeigen (führende Nullstellen ausblenden)
+    // Summanden anzeigen (führende Nullen ausblenden)
     for (let i = 0; i < NUM_COLS; i++) {
       const isLeadingTopZero =
         topDigits[i] === 0 && i < NUM_COLS - digitsCount(topNumber);
@@ -409,23 +410,14 @@
   }
 
   function checkSolution() {
-    const allInputs = [...carryInputs, ...resultInputs];
-    for (const inp of allInputs) {
-      if (inp.value === '') {
-        feedbackEl.textContent = 'Bitte fülle alle Behalte und Ergebnisziffern aus.';
-        feedbackEl.className = 'feedback error';
-        inp.focus();
-        return;
-      }
-    }
-
     let allCorrect = true;
 
-    // Behalte prüfen (Spalten 0..3 / keine Einerstelle)
+    // Behalte prüfen (Spalten 0..3, leeres Feld = 0)
     carryInputs.forEach(inp => {
       const col = parseInt(inp.getAttribute('data-col'), 10);
       const expected = carryDigits[col];
-      const value = parseInt(inp.value, 10);
+      const value = inp.value === '' ? 0 : parseInt(inp.value, 10);
+
       inp.classList.remove('correct', 'incorrect');
       if (value === expected) {
         inp.classList.add('correct');
@@ -435,11 +427,12 @@
       }
     });
 
-    // Resultat-Ziffern prüfen (Spalten 0..4)
+    // Resultat prüfen (Spalten 0..4, leeres Feld = 0)
     resultInputs.forEach(inp => {
       const col = parseInt(inp.getAttribute('data-col'), 10);
       const expected = resultDigits[col];
-      const value = parseInt(inp.value, 10);
+      const value = inp.value === '' ? 0 : parseInt(inp.value, 10);
+
       inp.classList.remove('correct', 'incorrect');
       if (value === expected) {
         inp.classList.add('correct');
